@@ -25,9 +25,13 @@ if [ ! -f "$IBMCLOUD" ]; then
     rm -fv ibm_cli.tgz
 fi
 
-if [ ! -f "./v2ray-cloudfoundry/v2ray/v2ray" ]; then
+if [ -z $APP_NAME ]; then
+    APP_NAME=test
+fi
+
+if [ ! -f "./v2ray-cloudfoundry/bin/v2ray" ]; then
     echo "${BLUE}download v2ray${END}"
-    pushd ./v2ray-cloudfoundry/v2ray
+    pushd ./v2ray-cloudfoundry/bin
     new_ver=$(curl -s https://github.com/v2fly/v2ray-core/releases/latest | grep -Po "(\d+\.){2}\d+")
     wget -q -Ov2ray.zip https://github.com/v2fly/v2ray-core/releases/download/v${new_ver}/v2ray-linux-64.zip
     if [ $? -eq 0 ]; then
@@ -42,8 +46,18 @@ if [ ! -f "./v2ray-cloudfoundry/v2ray/v2ray" ]; then
     sed "s/V2_PATH/$V2_PATH/" config.json -i
     sed "s/ALTER_ID/$ALTER_ID/" config.json -i
     sed "s/IBM_APP_NAME/$IBM_APP_NAME/" ../manifest.yml -i
+    sed "s/APP_NAME/$APP_NAME/" ../Procfile -i
     popd
 fi
+
+# fake root
+mkdir -p $APP_NAME
+cp -rvf ./v2ray-cloudfoundry/Godeps ./$APP_NAME/
+cp -vf ./v2ray-cloudfoundry/Procfile ./$APP_NAME/
+cp -vf ./v2ray-cloudfoundry/main.go ./$APP_NAME/
+cp -vf ./v2ray-cloudfoundry/manifest.yml ./$APP_NAME/
+cp -vf ./v2ray-cloudfoundry/bin/v2ray ./$APP_NAME/$APP_NAME
+./v2ray-cloudfoundry/bin/v2ctl config ./v2ray-cloudfoundry/bin/config.json > $APP_NAME/config.pb
 
 echo "${BLUE}ibmcloud login${END}"
 $IBMCLOUD login -r us-south <<EOF
@@ -68,7 +82,7 @@ $CF login -a https://api.us-south.cf.cloud.ibm.com <<EOF
 $IBM_ACCOUNT
 EOF
 
-cd ./v2ray-cloudfoundry
+cd ./$APP_NAME
 #echo "${BLUE}ibmcloud cf push${END}"
 #$IBMCLOUD cf push
 echo "${BLUE}cf push${END}"
